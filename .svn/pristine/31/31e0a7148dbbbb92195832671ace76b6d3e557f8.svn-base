@@ -1,8 +1,0 @@
-<?php
-return [
-    'app_name'          => 'Client_Library_Examples',
-    'client_id'         => '659817677190-h6n7j1t4nss4ekq5q39v14f7uqlc4qs2.apps.googleusercontent.com',
-    'service_account_name' => 'rhc1-888@dumas-1470212397620.iam.gserviceaccount.com',
-    'key_file_location' => env('google_key_file')
-
-];
