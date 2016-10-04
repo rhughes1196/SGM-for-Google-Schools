@@ -1,0 +1,99 @@
+<?php
+namespace App;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
+use Session;
+
+class Google{
+
+    protected $client;
+
+    protected $service;
+
+    function __construct(){
+        $this->client_id =Config::get('google.client_id');
+		$this->service_account_name = Config::get('google.service_account_name');
+		$this->key_file = Config::get('google.key_file_location');
+		$this->client = new \Google_Client();
+		$this->service = new \Google_Service_Directory($this->client);
+        $this->client->setApplicationName("Dumas");
+    }
+
+	public function getServiceToken(){
+		$service_token=Session::get('google.service_token');
+		if (isset($service_token)) {
+		  $this->client->setAccessToken($service_token);
+		}
+		$key = file_get_contents($this->key_file);
+		$credentials = new \Google_Auth_AssertionCredentials(
+			$this->service_account_name,
+			  array('https://www.googleapis.com/auth/admin.directory.group', 'https://www.googleapis.com/auth/admin.directory.user'),
+			$key
+		);
+		$credentials->sub = "richard@dumasschools.net";
+		$this->client->setAssertionCredentials($credentials);
+
+		if ($this->client->getAuth()->isAccessTokenExpired()) {
+
+		  $this->client->getAuth()->refreshTokenWithAssertion($credentials);
+
+		}
+		Session::put('google.service_token',  $this->client->getAccessToken());
+    }
+
+    public function addUserToGroup($email,$group_id) {
+    	$service_token=$this->getServiceToken();
+		$service = $this->service;
+
+    	$member = new \Google_Service_Directory_Member($this->client);
+		$member->setEmail($email);
+		$member->setRole("MEMBER");
+
+		$results = $this->service->members->insert($group_id,$member);
+		return $results;
+    }
+
+    public function getGroupMember($group_id, $user_id) {
+    	$service_token=$this->getServiceToken();
+		$service = $this->service;
+
+		$ok=0;
+   		try {   
+			$results = $this->service->members->get($group_id,$user_id);
+			$ok=1;
+			
+		} catch (\Exception $e) {
+			
+			$results = null;
+		} 
+		return $results;
+	
+    }
+
+    public function getGoogleUsers($next=null){
+		$service_token=$this->getServiceToken();
+		
+		$params = array(
+		  'domain' => 'dumasschools.net',
+		  'maxResults' => 50,
+		  'orderBy' => 'email',
+		);
+		if ($next) $params["pageToken"] = $next;
+		$results = $this->service->users->listUsers($params);
+
+		return $results;
+    }
+
+
+
+	 public function getGoogleGroups(){
+		$service_token=$this->getServiceToken();
+		
+		$optParams = array(
+		  'domain' => 'dumasschools.net',
+		  'maxResults' => 500,
+		);
+		$results = $this->service->groups->listGroups($optParams);
+		return $results;
+    }
+}
